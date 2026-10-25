@@ -16,19 +16,78 @@
     }
   </style>
 
-  <!-- 1. SvelteKitの about:srcdoc 無限リロードループを完全防止 -->
+  <!-- jsDelivr 環境用の完全パッチスクリプト -->
   <script>
     (function() {
+      const REPO_BASE = "https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon";
+
+      // 1. 【ストロボ防止】document.URL !== location.href による無限リロードループを防止
       try {
         Object.defineProperty(document, 'URL', {
           get: function() { return location.href; },
           configurable: true
         });
       } catch (e) {}
+
+      // 2. 【404防止】日本語環境で /ja/ へ自動リダイレクトされて cdn.jsdelivr.net ルートへ脱出するのを防止
+      try {
+        sessionStorage.setItem("navigatorLanguage", "en");
+      } catch (e) {}
+
+      // 3. 【srcdoc初期化】about:srcdoc 内での location.pathname 不正 ("srcdoc") を "/" にリセット
+      try {
+        if (location.href.includes("srcdoc") || location.protocol === "about:") {
+          history.replaceState(null, "", "/");
+        }
+      } catch (e) {}
+
+      // 4. 【パス自動補正】fetch で /data や /images などの相対パスを jsDelivr CDN パスへ自動補正
+      const originalFetch = window.fetch;
+      window.fetch = function(input, init) {
+        if (typeof input === "string") {
+          if (input.startsWith("/") && !input.startsWith("/gh/")) {
+            input = REPO_BASE + input;
+          }
+        } else if (input && input.url) {
+          try {
+            const u = new URL(input.url);
+            if (u.origin === location.origin && !u.pathname.startsWith("/gh/")) {
+              input = new Request(REPO_BASE + u.pathname + u.search, init || input);
+            }
+          } catch (e) {}
+        }
+        return originalFetch.call(this, input, init);
+      };
+
+      // 5. 【XMLHttpRequest補正】
+      const origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        if (typeof url === "string" && url.startsWith("/") && !url.startsWith("/gh/")) {
+          url = REPO_BASE + url;
+        }
+        return origOpen.call(this, method, url, ...rest);
+      };
+
+      // 6. 【画像パス自動補正】<img src="/images/..."> を CDN パスへ書き換え
+      try {
+        const origSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+        if (origSrcDesc && origSrcDesc.set) {
+          Object.defineProperty(HTMLImageElement.prototype, 'src', {
+            set: function(val) {
+              if (typeof val === 'string' && val.startsWith('/') && !val.startsWith('/gh/')) {
+                val = REPO_BASE + val;
+              }
+              return origSrcDesc.set.call(this, val);
+            },
+            get: origSrcDesc.get,
+            configurable: true
+          });
+        }
+      } catch (e) {}
     })();
   </script>
 
-  <!-- 2. モジュール解決用 importmap -->
+  <!-- モジュール解決用 importmap -->
   <script type="importmap">
   {
     "imports": {
@@ -58,7 +117,6 @@
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/chunks/CGWj7HQ4.js">
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/chunks/CY5JQ6QJ.js">
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/chunks/CH-FUDQ3.js">
-
   <style>
     body {
       font-family: 'Roboto', sans-serif;
