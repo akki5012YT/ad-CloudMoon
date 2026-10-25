@@ -16,7 +16,7 @@
     }
   </style>
 
-  <!-- jsDelivr 環境用の完全パッチスクリプト -->
+  <!-- jsDelivr / SVG srcdoc 実行環境用の完全パッチスクリプト -->
   <script>
     (function() {
       const REPO_BASE = "https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon";
@@ -29,19 +29,39 @@
         });
       } catch (e) {}
 
-      // 2. 【404防止】日本語環境で /ja/ へ自動リダイレクトされて cdn.jsdelivr.net ルートへ脱出するのを防止
+      // 2. 【言語強制】日本語環境判定による /ja/ への 302 リダイレクトループを抑止
       try {
         sessionStorage.setItem("navigatorLanguage", "en");
+        Object.defineProperty(navigator, 'language', { get: function() { return 'en'; } });
+        Object.defineProperty(navigator, 'languages', { get: function() { return ['en']; } });
       } catch (e) {}
 
-      // 3. 【srcdoc初期化】about:srcdoc 内での location.pathname 不正 ("srcdoc") を "/" にリセット
-      try {
-        if (location.href.includes("srcdoc") || location.protocol === "about:") {
-          history.replaceState(null, "", "/");
+      // 3. 【404防止の核心: URLラッパー】
+      // Safari の about:srcdoc 内で new URL(location.href).origin が "null" になり、
+      // SvelteKit が外部離脱判定して 404 を出す問題を根本解決
+      const OrigURL = window.URL;
+      window.URL = class CustomURL extends OrigURL {
+        constructor(url, base) {
+          if (typeof url === "string") {
+            if (url.startsWith("about:") || url === "" || url.includes("srcdoc")) {
+              super("https://cdn.jsdelivr.net/", base);
+              return;
+            }
+            if (url.includes("/gh/akki5012YT/ad-CloudMoon")) {
+              const clean = url.replace(/https?:\/\/[^/]+\/gh\/akki5012YT\/ad-CloudMoon(\/[^/?#]+\.(svg|html))?/, "https://cdn.jsdelivr.net");
+              super(clean, base);
+              return;
+            }
+          }
+          super(url, base);
         }
-      } catch (e) {}
+        get origin() {
+          return (typeof location !== "undefined" && location.origin && location.origin !== "null") ? location.origin : "https://cdn.jsdelivr.net";
+        }
+      };
+      Object.setPrototypeOf(window.URL, OrigURL);
 
-      // 4. 【パス自動補正】fetch で /data や /images などの相対パスを jsDelivr CDN パスへ自動補正
+      // 4. 【パス自動補正】fetch で /images などの相対パスを jsDelivr CDN パスへ自動補正
       const originalFetch = window.fetch;
       window.fetch = function(input, init) {
         if (typeof input === "string") {
@@ -138,6 +158,36 @@
         import("https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/entry/start.CyFArhgz.js"),
         import("https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/entry/app.yJDyIo4F.js")
       ]).then(([kit, app]) => {
+        // 【SvelteKit ルーターの完全フォールバック設定】
+        // SVGのsrcdoc環境やCDNパスでどのURLが渡されても404を出さず、CloudMoonのトップ画面([3, [2]])を表示させる
+        const homeRoute = (app.dictionary && app.dictionary["/[[lang]]"]) || [3, [2]];
+        if (app.dictionary) {
+          app.dictionary["/"] = homeRoute;
+          app.dictionary["/srcdoc"] = homeRoute;
+          app.dictionary["/261025.svg"] = homeRoute;
+          app.dictionary["/Brawl-stars.svg"] = homeRoute;
+          app.dictionary["/index.html"] = homeRoute;
+          app.dictionary["/gh/akki5012YT/ad-CloudMoon/261025.svg"] = homeRoute;
+          app.dictionary["/gh/akki5012YT/ad-CloudMoon/Brawl-stars.svg"] = homeRoute;
+          app.dictionary["/gh/akki5012YT/ad-CloudMoon/index.html"] = homeRoute;
+          app.dictionary["/gh/akki5012YT/ad-CloudMoon"] = homeRoute;
+        }
+
+        // 不明なパスでも404ノード(1)ではなくトップ画面へルーティング
+        if (app.hooks) {
+          const origReroute = app.hooks.reroute || (() => {});
+          app.hooks.reroute = function(event) {
+            const res = origReroute(event);
+            if (res) return res;
+            const p = (event && event.url) ? event.url.pathname : "";
+            if (p.includes("game/")) {
+              const m = p.match(/game\/([^/?#]+)/);
+              if (m) return "/game/" + m[1];
+            }
+            return "/";
+          };
+        }
+
         kit.start(app, element);
       }).catch(err => {
         console.error("CloudMoon load error:", err);
