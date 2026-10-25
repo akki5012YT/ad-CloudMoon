@@ -1,7 +1,34 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <base href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/"/>
+  <meta charset="utf-8"/>
+  <meta name="color-scheme" content="dark"/>
+  <style>
+    /* 白点滅（ストロボ）を完全に防ぐダークスタイル */
+    html, body {
+      background-color: #0b0f19 !important;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+
+  <!-- 1. SvelteKitの about:srcdoc 無限リロードループを完全防止 -->
+  <script>
+    (function() {
+      try {
+        Object.defineProperty(document, 'URL', {
+          get: function() { return location.href; },
+          configurable: true
+        });
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- 2. モジュール解決用 importmap -->
   <script type="importmap">
   {
     "imports": {
@@ -10,7 +37,7 @@
     }
   }
   </script>
-  <meta charset="utf-8"/>
+
   <link rel="icon" sizes="any" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/favicon.ico"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -32,16 +59,6 @@
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/chunks/CY5JQ6QJ.js">
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon/_app/immutable/chunks/CH-FUDQ3.js">
 
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q30NXCCZNN"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      dataLayer.push(arguments);
-    }
-    gtag('js', new Date());
-    gtag('config', 'G-Q30NXCCZNN');
-  </script>
   <style>
     body {
       font-family: 'Roboto', sans-serif;
@@ -53,7 +70,7 @@
   <script>
     {
       __sveltekit_d77a9n = {
-        base: "https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon",
+        base: "",
         assets: "https://cdn.jsdelivr.net/gh/akki5012YT/ad-CloudMoon"
       };
 
